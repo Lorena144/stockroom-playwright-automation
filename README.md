@@ -8,12 +8,14 @@ using Playwright and TypeScript.
 - UI: sign-in, form validation, password visibility, sessions, sign-out and access control.
 - API: authentication, sessions, inventory permissions, validation, CSRF and Origin checks,
   and logout session revocation.
+- Hybrid: API sign-in followed by browser access, and UI sign-in followed by API logout
+  and verification that browser access is removed.
 
-UI tests run in Chromium, Firefox and WebKit. API tests run in a separate project.
+UI and hybrid tests run in Chromium, Firefox and WebKit. API tests run in a separate project.
 
 ## Setup
 
-Requires Node.js 24 LTS and a running Stockroom application.
+Requires Node.js 24 LTS.
 
 ```cmd
 npm ci
@@ -24,6 +26,8 @@ An `.env.example` file lists the required environment variables.
 Create your local `.env` file using that template and configure your test accounts.
 
 ## Run
+
+Start Stockroom before running the tests.
 
 Check TypeScript:
 
@@ -42,6 +46,12 @@ Run UI or API tests separately:
 ```cmd
 npm run test:ui
 npm run test:api
+```
+
+Run hybrid tests separately:
+
+```cmd
+npm run test:hybrid
 ```
 
 ## Reports

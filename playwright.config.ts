@@ -46,21 +46,30 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      testMatch: '**/ui/**/*.spec.ts',
+      testMatch: [
+        '**/ui/**/*.spec.ts',
+        '**/hybrid/**/*.spec.ts',
+      ],
       use: {
         ...devices['Desktop Chrome'],
       },
     },
     {
       name: 'firefox',
-      testMatch: '**/ui/**/*.spec.ts',
+      testMatch: [
+        '**/ui/**/*.spec.ts',
+        '**/hybrid/**/*.spec.ts',
+      ],
       use: {
         ...devices['Desktop Firefox'],
       },
     },
     {
       name: 'webkit',
-      testMatch: '**/ui/**/*.spec.ts',
+      testMatch: [
+        '**/ui/**/*.spec.ts',
+        '**/hybrid/**/*.spec.ts',
+      ],
       use: {
         ...devices['Desktop Safari'],
       },

@@ -1,0 +1,26 @@
+# Installed dependencies
+/node_modules/
+
+# Generated Playwright results and reports
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Saved authenticated browser sessions
+/playwright/.auth/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Generated TypeScript cache
+*.tsbuildinfo
+
+# Local logs
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db

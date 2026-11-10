@@ -23,7 +23,6 @@ export class LoginPage {
             name: 'Sign in',
             exact: true
         });
-        
         this.passwordToggleButton = page.getByRole('button', {
             name: /^(Show|Hide) password$/
         });

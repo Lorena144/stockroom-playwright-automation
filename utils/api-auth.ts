@@ -1,5 +1,5 @@
-import type { APIRequestContext, APIResponse } from "@playwright/test";
-import { requiredEnv } from "./env";
+import type { APIRequestContext, APIResponse } from '@playwright/test';
+import { requiredEnv } from './env';
 
 export async function getCsrfToken(request: APIRequestContext): Promise<string> {
     const response = await request.get('/api/auth/csrf');

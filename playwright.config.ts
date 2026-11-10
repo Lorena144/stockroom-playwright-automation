@@ -27,7 +27,7 @@ export default defineConfig({
 
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 2,
 
   reporter: [['list'], ['html', { open: 'never' }]],
 

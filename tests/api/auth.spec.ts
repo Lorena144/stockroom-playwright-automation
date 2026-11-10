@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { requiredEnv } from "../../utils/env";
+import { requiredEnv } from '../../utils/env';
 import { getCsrfToken, signInViaApi } from '../../utils/api-auth';
 import type { InventoryResponse } from '../../types/inventory';
 import type { ApiErrorResponse } from '../../types/api';

@@ -14,13 +14,13 @@ test('customer can sign in through the API and use the session', async ({ reques
 
     const loginBody = await loginResponse.json();
     expect(loginBody).toMatchObject({
-        "user": {
-            "id": expect.any(String),
-            "email": email,
-            "name": expect.any(String),
-            "role": "customer"
+        user: {
+            id: expect.any(String),
+            email,
+            name: expect.any(String),
+            role: 'customer',
         },
-        "csrfToken": expect.any(String)
+        csrfToken: expect.any(String),
     });
 
     const sessionResponse = await request.get('/api/auth/session');

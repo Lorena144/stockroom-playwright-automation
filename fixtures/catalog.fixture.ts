@@ -36,7 +36,6 @@ export const test = base.extend<{}, CatalogWorkerFixtures>({
         },
         { scope: 'worker' },
     ],
-
 });
 
 export { expect };

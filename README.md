@@ -1,6 +1,6 @@
 # Stockroom Playwright Automation
 
-UI and API automation for the Stockroom order and inventory management application,
+UI, API and hybrid automation for the Stockroom order and inventory management application,
 using Playwright and TypeScript.
 
 **Status:** QA automation portfolio project in progress. New test scenarios are added incrementally.
@@ -10,14 +10,18 @@ using Playwright and TypeScript.
 - UI: sign-in, form validation, password visibility, sessions, sign-out and access control;
   catalog search, combined filters, sorting, page size, pagination, reset actions,
   refresh persistence, collection scrolling and product details.
-- API: authentication, sessions, inventory permissions, validation, CSRF and Origin checks,
-  and logout session revocation.
-- Hybrid: API sign-in followed by browser access, and UI sign-in followed by API logout
-  and verification that browser access is removed.
+- API: authentication, sessions, inventory permissions, CSRF and Origin checks,
+  and logout session revocation; catalog search, filters, stock sorting, pagination,
+  page size, product details, category counts and query parameter validation;
+  rejection of unauthenticated requests to protected endpoints.
+- Hybrid: API sign-in followed by browser access; UI sign-in followed by API logout
+  and verification that browser access is removed; consistency checks between API
+  responses and the UI for category results and product details.
 
 UI and hybrid tests run in Chromium, Firefox and WebKit. API tests run in a separate project.
 
-Catalog UI tests authenticate once per worker and use a fresh browser context for each test.
+Catalog tests reuse authenticated storage state per worker.
+Browser and API contexts are isolated between tests.
 
 ## Setup
 

@@ -1,0 +1,85 @@
+name: Playwright CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: automation
+
+    env:
+      CI: 'true'
+      UI_BASE_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Check out automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: automation
+          persist-credentials: false
+
+      - name: Check out Stockroom application
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Lorena144/stockroom-application
+          ref: 7ed436fbf902c85a97ed61c6a655b11c4a811ad5
+          path: application
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            automation/package-lock.json
+            application/package-lock.json
+
+      - name: Install automation dependencies
+        run: npm ci
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Install application dependencies
+        working-directory: application
+        run: npm ci
+
+      - name: Create CI demo accounts
+        working-directory: application
+        env:
+          CUSTOMER_PASSWORD: ${{ secrets.CUSTOMER_PASSWORD }}
+          STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
+        run: npm run setup
+
+      - name: Build application
+        working-directory: application
+        run: npm run build
+
+      - name: Run UI, API and hybrid tests
+        env:
+          CUSTOMER_EMAIL: ${{ secrets.CUSTOMER_EMAIL }}
+          CUSTOMER_PASSWORD: ${{ secrets.CUSTOMER_PASSWORD }}
+          STAFF_EMAIL: ${{ secrets.STAFF_EMAIL }}
+          STAFF_PASSWORD: ${{ secrets.STAFF_PASSWORD }}
+        run: npm test
+        

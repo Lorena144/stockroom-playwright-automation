@@ -1,5 +1,7 @@
 # Stockroom Playwright Automation
 
+![CI](https://github.com/Lorena144/stockroom-playwright-automation/actions/workflows/playwright.yml/badge.svg?branch=main)
+
 UI, API and hybrid automation for the Stockroom order and inventory management application,
 using Playwright and TypeScript.
 
@@ -69,3 +71,8 @@ npm run test:hybrid
 ```cmd
 npx playwright show-report
 ```
+
+## CI
+
+GitHub Actions builds a pinned Stockroom version and runs UI, API and hybrid tests.
+Credentials are provided through GitHub Secrets.

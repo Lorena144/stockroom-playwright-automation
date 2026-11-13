@@ -29,7 +29,9 @@ export default defineConfig({
   retries: 0,
   workers: process.env.CI ? 1 : 2,
 
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: process.env.CI
+    ? [['list']]
+    : [['list'], ['html', { open: 'never' }]],
 
   outputDir: 'test-results',
 
@@ -38,6 +40,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+
+  webServer: process.env.CI
+    ? {
+      command: 'npm run start',
+      cwd: resolve(__dirname, '../application'),
+      url: new URL('/api/health', baseURL).href,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    }
+    : undefined,
 
   projects: [
     {

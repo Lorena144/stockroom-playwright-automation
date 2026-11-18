@@ -22,7 +22,7 @@ test('catalog category results match the API response', async ({ page, request }
     const expectedTitles = body.items.map((product) => product.name);
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption({ label: category });
 
@@ -47,7 +47,7 @@ test('product details match the API response', async ({ page, request }) => {
     }).format(product.priceCents / 100);
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(product.sku);
 

@@ -26,6 +26,7 @@ export class CatalogPage {
     readonly pagination: Locator;
     readonly previousPageButton: Locator;
     readonly nextPageButton: Locator;
+    readonly firstProductCard: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -58,6 +59,7 @@ export class CatalogPage {
         });
 
         this.productCards = page.getByTestId('product-card');
+        this.firstProductCard = this.productCards.first();
         this.productTitles = this.productCards.getByRole('heading', { level: 3 });
         this.productPrices = page.locator('.product-title-row strong');
         this.resultsSummary = page.getByTestId('catalog-results');
@@ -123,5 +125,47 @@ export class CatalogPage {
             name: productName,
             exact: true
         });
+    }
+
+    productCard(productName: string): Locator {
+        return this.productCards.filter({
+            has: this.page.getByRole('heading', {
+                name: productName,
+                exact: true
+            })
+        });
+    }
+
+    productPrice(productName: string): Locator {
+        return this.productCard(productName).locator('.product-title-row strong');
+    }
+
+    addToCartButton(productName: string): Locator {
+        return this.productCard(productName).getByTestId('add-to-cart');
+    }
+
+    addToCartMessage(productName: string): Locator {
+        return this.productCard(productName).getByRole('status');
+    }
+
+    viewCartLink(productName: string): Locator {
+        return this.productCard(productName).getByRole('link', {
+            name: 'View cart',
+            exact: true
+        });
+    }
+
+    productCategory(productName: string, category: string): Locator {
+        return this.productCard(productName).getByText(category, {
+            exact: true,
+        });
+    }
+
+    productStockQuantity(productName: string): Locator {
+        return this.productCard(productName).locator('.stock-quantity');
+    }
+
+    productAvailability(productName: string): Locator {
+        return this.productCard(productName).locator('.stock-pill');
     }
 }

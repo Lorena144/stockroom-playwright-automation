@@ -41,13 +41,13 @@ test('staff can sign in through the API and use the session', async ({ request }
 
     const loginBody = await loginResponse.json();
     expect(loginBody).toMatchObject({
-        "user": {
-            "id": expect.any(String),
-            "email": email,
-            "name": expect.any(String),
-            "role": "staff"
+        user: {
+            id: expect.any(String),
+            email,
+            name: expect.any(String),
+            role: 'staff',
         },
-        "csrfToken": expect.any(String)
+        csrfToken: expect.any(String),
     });
 
     const sessionResponse = await request.get('/api/auth/session');
@@ -77,8 +77,8 @@ test('customer cannot retrieve staff inventory through the API', async ({ reques
     expect(inventoryBody).toMatchObject(
         {
             error: {
-                code: "FORBIDDEN",
-                message: "This area is available to operations staff only."
+                code: 'FORBIDDEN',
+                message: 'This area is available to operations staff only.',
             },
             requestId: expect.any(String)
         }
@@ -120,15 +120,15 @@ test('staff can retrieve inventory with supplier and cost information', async ({
 test('API rejects incorrect credentials without creating a session', async ({ request }) => {
     const unknownEmail = `unknown-${randomUUID()}@stockroom.test`;
 
-    const loginResponse = await signInViaApi(request, unknownEmail, "InvalidPassword123!");
+    const loginResponse = await signInViaApi(request, unknownEmail, 'InvalidPassword123!');
     expect(loginResponse.status()).toBe(401);
     expect(loginResponse.headers()['content-type']).toContain('application/json');
 
     const loginBody: ApiErrorResponse = await loginResponse.json();
     expect(loginBody).toMatchObject({
         error: {
-            code: "INVALID_CREDENTIALS",
-            message: "The email or password is incorrect."
+            code: 'INVALID_CREDENTIALS',
+            message: 'The email or password is incorrect.',
         },
         requestId: expect.any(String)
     });

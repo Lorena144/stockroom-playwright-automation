@@ -1,14 +1,6 @@
-export interface InventoryProduct {
-    id: string;
-    sku: string;
-    name: string;
-    category: 'Accessories' | 'Audio' | 'Computers' | 'Displays' | 'Workspace';
-    description: string;
-    priceCents: number;
-    stock: number;
-    art: string;
-    color: string;
-    specs: Record<string, string>;
+import type { CatalogProduct } from './catalog';
+
+export interface InventoryProduct extends CatalogProduct {
     costCents: number;
     supplier: string;
     stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock';

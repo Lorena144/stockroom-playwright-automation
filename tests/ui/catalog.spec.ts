@@ -26,7 +26,7 @@ test('customer can find a product by SKU', async ({ page }) => {
     const sku = 'SR-101';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(sku);
 
@@ -43,7 +43,7 @@ test('customer sees empty results for an unmatched search', async ({ page }) => 
     const query = `no-product-${randomUUID()}`;
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(query);
 
@@ -60,7 +60,7 @@ test('customer can submit a search using Enter', async ({ page }) => {
     const sku = 'SR-101';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchInput.fill(sku);
     await catalogPage.searchInput.press('Enter');
@@ -78,7 +78,7 @@ test('customer can search by a partial name ignoring letter case', async ({ page
     const query = 'mEcHaNiCaL';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(query);
 
@@ -95,7 +95,7 @@ test('customer can search with surrounding spaces', async ({ page }) => {
     const sku = 'SR-101';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(`   ${sku}   `);
 
@@ -112,7 +112,7 @@ test('customer can search for a percent sign as literal text', async ({ page }) 
     const query = '%';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(query);
 
@@ -128,7 +128,7 @@ test('clearing search preserves the selected category', async ({ page }) => {
     const catalogPage = new CatalogPage(page);
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption('Accessories');
 
@@ -203,7 +203,7 @@ test('category filter displays only matching products: Audio', async ({ page }) 
     ];
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption('Audio');
 
@@ -214,8 +214,8 @@ test('category filter displays only matching products: Audio', async ({ page }) 
     await expect(catalogPage.productTitles).toHaveText(expectedTitles);
     await expect(catalogPage.resultsSummary).toContainText(`${expectedTitles.length} products`);
 
-    for (const card of await catalogPage.productCards.all()) {
-        await expect(card.getByText('Audio', { exact: true })).toBeVisible();
+    for (const productName of expectedTitles) {
+        await expect(catalogPage.productCategory(productName, 'Audio')).toBeVisible();
     }
 });
 
@@ -228,7 +228,7 @@ test('availability filter displays only matching products: Out of stock', async 
     ];
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.availabilitySelect.selectOption('Out of stock');
 
@@ -239,8 +239,10 @@ test('availability filter displays only matching products: Out of stock', async 
     await expect(catalogPage.productTitles).toHaveText(expectedTitles);
     await expect(catalogPage.resultsSummary).toContainText(`${expectedTitles.length} products`);
 
-    for (const card of await catalogPage.productCards.all()) {
-        await expect(card.getByText('Out of stock', { exact: true })).toBeVisible();
+    for (const productName of expectedTitles) {
+        await expect(catalogPage.productAvailability(productName)).toHaveText(
+            'Out of stock',
+        );
     }
 });
 
@@ -257,7 +259,7 @@ test('combined filters display matching products: Accessories + In stock', async
     ];
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.pageSizeSelect.selectOption('12');
     await catalogPage.categorySelect.selectOption({ label: 'Accessories' });
@@ -270,9 +272,14 @@ test('combined filters display matching products: Accessories + In stock', async
     await expect(catalogPage.productCards).toHaveCount(expectedTitles.length);
     await expect(catalogPage.productTitles).toHaveText(expectedTitles);
 
-    for (const card of await catalogPage.productCards.all()) {
-        await expect(card.getByText('Accessories', { exact: true })).toBeVisible();
-        await expect(card.locator('.stock-quantity')).toHaveText(/^[1-9]\d* available$/);
+    for (const productName of expectedTitles) {
+        await expect(
+            catalogPage.productCategory(productName, 'Accessories'),
+        ).toBeVisible();
+
+        await expect(catalogPage.productStockQuantity(productName)).toHaveText(
+            /^[1-9]\d* available$/,
+        );
     }
 });
 
@@ -287,7 +294,7 @@ test('price sorting orders products: Low to high', async ({ page }) => {
     const expectedPrices = ['€89.00', '€99.00', '€129.00', '€149.00'];
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption('Audio');
     await expect(catalogPage.productCards).toHaveCount(expectedTitles.length);
@@ -314,7 +321,7 @@ test('price sorting orders products: High to low', async ({ page }) => {
     const expectedPrices = ['€149.00', '€129.00', '€99.00', '€89.00'];
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption({ label: 'Audio' });
     await expect(catalogPage.productCards).toHaveCount(expectedTitles.length);
@@ -368,7 +375,7 @@ test('pagination preserves category: Next and Previous', async ({ page }) => {
 
     await catalogPage.goto();
 
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.categorySelect.selectOption({ label: 'Accessories' });
 
@@ -401,7 +408,7 @@ test('combined filters show no matches: SKU and unrelated category', async ({ pa
 
     await catalogPage.goto();
 
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(sku);
     await expect(catalogPage.productTitles).toHaveText('Arc mechanical keyboard');
@@ -424,7 +431,7 @@ test('catalog settings and results persist after a refresh', async ({ page }) =>
     const inputFilter = 'USB';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.searchFor(inputFilter);
     await catalogPage.categorySelect.selectOption({ label: 'Accessories' });
@@ -479,7 +486,7 @@ test('opening a product displays its details', async ({ page }) => {
     const productName = 'Arc mechanical keyboard';
 
     await catalogPage.goto();
-    await expect(catalogPage.productCards.first()).toBeVisible();
+    await expect(catalogPage.firstProductCard).toBeVisible();
 
     await catalogPage.productLink(productName).click();
 
@@ -495,13 +502,13 @@ test('opening a product displays its details', async ({ page }) => {
     await expect(productDetailsPage.description).toBeVisible();
     await expect(productDetailsPage.description).toHaveText(/\S/);
 
-    await expect(productDetailsPage.specifications.getByRole('term')).toHaveText([
+    await expect(productDetailsPage.specificationTerms).toHaveText([
         'Layout',
         'Connection',
         'Switches',
     ]);
 
-    await expect(productDetailsPage.specifications.getByRole('definition')).toHaveText([
+    await expect(productDetailsPage.specificationDefinitions).toHaveText([
         '75 percent ANSI',
         'USB C and Bluetooth',
         'Silent tactile',

@@ -100,11 +100,11 @@ test('inventory endpoint rejects a request without signing in', async ({ request
 
     const body = await response.json();
     expect(body).toMatchObject({
-        "error": {
-            "code": "UNAUTHENTICATED",
-            "message": "Please sign in to continue."
+        error: {
+            code: 'UNAUTHENTICATED',
+            message: 'Please sign in to continue.',
         },
-        "requestId": expect.any(String),
+        requestId: expect.any(String),
     });
     expect(body).not.toHaveProperty('items');
 });

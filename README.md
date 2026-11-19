@@ -106,5 +106,6 @@ npx playwright show-report
 ## CI
 
 GitHub Actions initializes a fresh demo database, builds a pinned Stockroom version
-and runs UI, API and hybrid tests.
+and runs UI, API and hybrid tests inside the official Playwright Docker image.
+The image version matches the project's Playwright version.
 Credentials are provided through GitHub Secrets.

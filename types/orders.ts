@@ -30,7 +30,10 @@ export interface Order extends OrderSummary {
     items: OrderItem[];
 }
 
-export interface OrderPlacementResponse {
-    order: Order;
+export interface OrderPlacementResponse extends OrderResponse {
     replayed: boolean;
+}
+
+export interface OrderResponse {
+    order: Order;
 }

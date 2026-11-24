@@ -16,12 +16,12 @@ using Playwright and TypeScript.
   order placement, confirmation and history;
   mocked history responses, retry handling and recovery from a lost order confirmation response.
 - API: authentication, sessions, inventory permissions, CSRF and Origin checks,
-  and logout session revocation; catalog search, filters, stock sorting, pagination,
-  page size, product details, category counts and query parameter validation;
-  rejection of unauthenticated requests to protected endpoints.
-- Hybrid: API sign-in followed by browser access; UI sign-in followed by API logout
-  and verification that browser access is removed; consistency checks between API
-  responses and the UI for category results and product details.
+  and logout session revocation; catalog queries, product details and categories;
+  cart operations, quantity limits and validation; order placement, details,
+  history, pagination, idempotency and cart, token and stock conflicts.
+- Hybrid: authentication across API and browser; API/UI consistency for catalog
+  results, product details, cart updates and removals, and order details;
+  UI order placement checked against the saved API order and emptied cart.
 
 UI and hybrid tests run in Chromium, Firefox and WebKit. API tests run in a separate project.
 
@@ -45,12 +45,13 @@ Clone the [Stockroom application](https://github.com/Lorena144/stockroom-applica
 into a sibling folder named `application`. Follow its README to initialize the demo
 data and start the application at `http://127.0.0.1:3000`.
 
-Order tests require this local checkout to restore product stock after each test.
+Stock-changing tests require the sibling application checkout and the local URL above.
 
 ## Test data
 
 Cart tests clear the cart before and after each test.
-The order fixture restores the product stock recorded before each test.
+Stock-changing tests restore the stock values recorded before the test.
+Orders created by tests remain in the demo history.
 
 <details>
 <summary>Troubleshooting: restore seeded stock</summary>

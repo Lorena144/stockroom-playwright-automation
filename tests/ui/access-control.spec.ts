@@ -48,27 +48,29 @@ test('signed-out visitor is redirected from inventory to sign-in', async ({ page
     await expect(inventoryPage.inventoryTable).toBeHidden();
 });
 
-test('staff can view inventory with supplier and cost information', async ({ page }) => {
-    const email = requiredEnv('STAFF_EMAIL');
-    const password = requiredEnv('STAFF_PASSWORD');
+test('staff can view inventory with supplier and cost information',
+    { tag: '@smoke' },
+    async ({ page }) => {
+        const email = requiredEnv('STAFF_EMAIL');
+        const password = requiredEnv('STAFF_PASSWORD');
 
-    const loginPage = new LoginPage(page);
-    const catalogPage = new CatalogPage(page);
-    const inventoryPage = new InventoryPage(page);
+        const loginPage = new LoginPage(page);
+        const catalogPage = new CatalogPage(page);
+        const inventoryPage = new InventoryPage(page);
 
-    await loginPage.goto();
-    await loginPage.signIn(email, password);
+        await loginPage.goto();
+        await loginPage.signIn(email, password);
 
-    await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
-    await expect(catalogPage.accountMenu).toContainText('Operations staff');
+        await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
+        await expect(catalogPage.accountMenu).toContainText('Operations staff');
 
-    await inventoryPage.goto();
-    await expect(page).toHaveURL(/\/inventory(?:\?.*)?$/);
-    await expect(inventoryPage.inventoryTable).toBeVisible();
-    await expect(inventoryPage.unitCostColumnHeader).toBeVisible();
-    await expect(inventoryPage.supplierColumnHeader).toBeVisible();
-    await expect(inventoryPage.accessDeniedHeading).toBeHidden();
-});
+        await inventoryPage.goto();
+        await expect(page).toHaveURL(/\/inventory(?:\?.*)?$/);
+        await expect(inventoryPage.inventoryTable).toBeVisible();
+        await expect(inventoryPage.unitCostColumnHeader).toBeVisible();
+        await expect(inventoryPage.supplierColumnHeader).toBeVisible();
+        await expect(inventoryPage.accessDeniedHeading).toBeHidden();
+    });
 
 test('signed-out visitor is redirected from customer shopping pages to sign-in', async ({ page }) => {
     const loginPage = new LoginPage(page);

@@ -98,11 +98,42 @@ Run hybrid tests separately:
 npm run test:hybrid
 ```
 
+## Test selection
+
+- `@smoke`: critical workflows across the application.
+- `@sanity`: focused checks for the affected feature.
+- `@regression`: all tests in the current suite.
+
+Run smoke or regression tests:
+
+```cmd
+npx playwright test --grep "@smoke"
+npx playwright test --grep "@regression"
+```
+
+For sanity testing, select the affected feature's files. For example:
+
+```cmd
+npx playwright test tests/api/cart.spec.ts tests/ui/cart.spec.ts --grep "@sanity"
+```
+
 ## Reports
+
+View the Playwright HTML report:
 
 ```cmd
 npx playwright show-report
 ```
+
+Run tests with fresh Allure results, generate the report and open it:
+
+```cmd
+npm run test:allure
+npm run allure:generate
+npm run allure:open
+```
+
+Generated results and reports are excluded from Git.
 
 ## CI
 

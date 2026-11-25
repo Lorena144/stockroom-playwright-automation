@@ -13,116 +13,142 @@ import type {
 import { setDemoProductStock } from '../../utils/demo-product';
 import type { ApiErrorResponse } from '../../types/api';
 
-test('customer can place an order from the cart', async ({ page, request, orderProduct }) => {
-    const cartPage = new CartPage(page);
-    const orderDetailsPage = new OrderDetailsPage(page);
-    const productId = orderProduct.id;
-    const productName = orderProduct.name;
-    const quantity = 2;
+test('customer can place an order from the cart',
+    { tag: '@smoke' },
+    async ({ page, request, orderProduct }) => {
+        const cartPage = new CartPage(page);
+        const orderDetailsPage = new OrderDetailsPage(page);
+        const productId = orderProduct.id;
+        const productName = orderProduct.name;
+        const quantity = 2;
 
-    const cart = await addCartItem(request, productId, quantity);
-    expect(cart.items).toHaveLength(1);
+        await test.step('Prepare the cart through the API', async () => {
+            const cart = await addCartItem(request, productId, quantity);
+            expect(cart.items).toHaveLength(1);
+        });
 
-    const currencyFormatter = new Intl.NumberFormat('en-IE', {
-        style: 'currency',
-        currency: 'EUR',
+        const currencyFormatter = new Intl.NumberFormat('en-IE', {
+            style: 'currency',
+            currency: 'EUR',
+        });
+
+        const expectedUnitPrice = currencyFormatter.format(
+            orderProduct.priceCents / 100
+        );
+
+        const expectedTotal = currencyFormatter.format(
+            (orderProduct.priceCents * quantity) / 100
+        );
+
+        await test.step('Review the cart before checkout', async () => {
+            await cartPage.goto();
+
+            await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
+            await expect(cartPage.total).toHaveText(expectedTotal);
+            await expect(cartPage.placeOrderButton).toBeEnabled();
+        });
+
+        await test.step('Place the order and verify the confirmation', async () => {
+            await cartPage.placeOrderButton.click();
+
+            await expect(page).toHaveURL(/\/orders\/[^/?]+\?placed=1$/);
+            await expect(orderDetailsPage.heading).toHaveText('Order placed');
+            await expect(orderDetailsPage.confirmationMessage).toHaveText(
+                'Thank you. Your order is saved and the stock has been updated. ' +
+                'No payment has been taken.',
+            );
+
+            await expect(orderDetailsPage.orderNumber).toHaveText(/\S+/);
+            await expect(orderDetailsPage.status).toHaveText('Placed');
+            await expect(orderDetailsPage.orderItems).toHaveCount(1);
+            await expect(orderDetailsPage.orderItem(productName)).toBeVisible();
+            await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
+            await expect(orderDetailsPage.itemUnitPrice(productName)).toHaveText(expectedUnitPrice);
+            await expect(orderDetailsPage.itemSubtotal(productName)).toHaveText(expectedTotal);
+            await expect(orderDetailsPage.total).toHaveText(expectedTotal);
+        });
+
+        await test.step('Verify that the cart is empty', async () => {
+            await cartPage.goto();
+
+            await expect(cartPage.emptyCartHeading).toBeVisible();
+            await expect(cartPage.cartItems).toHaveCount(0);
+            await expect(cartPage.placeOrderButton).toBeHidden();
+        });
     });
 
-    const expectedUnitPrice = currencyFormatter.format(
-        orderProduct.priceCents / 100
-    );
+test('refreshing the confirmation page does not create another one',
+    { tag: '@sanity' },
+    async ({ page, request, orderProduct }) => {
+        const cartPage = new CartPage(page);
+        const orderDetailsPage = new OrderDetailsPage(page);
+        const ordersPage = new OrdersPage(page);
+        const productId = orderProduct.id;
+        const productName = orderProduct.name;
+        const quantity = 1;
 
-    const expectedTotal = currencyFormatter.format(
-        (orderProduct.priceCents * quantity) / 100
-    );
+        const initialOrderCount = await test.step('Capture the initial order count', async () => {
+            await ordersPage.goto();
 
-    await cartPage.goto();
+            const initialOrderCount = await ordersPage.getOrdersCount();
+            expect(initialOrderCount).toBeGreaterThanOrEqual(0);
 
-    await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
-    await expect(cartPage.total).toHaveText(expectedTotal);
-    await expect(cartPage.placeOrderButton).toBeEnabled();
+            return initialOrderCount;
+        });
 
-    await cartPage.placeOrderButton.click();
+        const expectedOrderCount = initialOrderCount + 1;
+        const expectedSummary =
+            `${expectedOrderCount} ${expectedOrderCount === 1 ? 'order' : 'orders'}`;
 
-    await expect(page).toHaveURL(/\/orders\/[^/?]+\?placed=1$/);
-    await expect(orderDetailsPage.heading).toHaveText('Order placed');
-    await expect(orderDetailsPage.confirmationMessage).toHaveText(
-        'Thank you. Your order is saved and the stock has been updated. ' +
-        'No payment has been taken.',
-    );
+        await test.step('Prepare the cart through the API', async () => {
+            const cart = await addCartItem(request, productId, quantity);
+            expect(cart.items).toHaveLength(1);
+        });
 
-    await expect(orderDetailsPage.orderNumber).toHaveText(/\S+/);
-    await expect(orderDetailsPage.status).toHaveText('Placed');
-    await expect(orderDetailsPage.orderItems).toHaveCount(1);
-    await expect(orderDetailsPage.orderItem(productName)).toBeVisible();
-    await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
-    await expect(orderDetailsPage.itemUnitPrice(productName)).toHaveText(expectedUnitPrice);
-    await expect(orderDetailsPage.itemSubtotal(productName)).toHaveText(expectedTotal);
-    await expect(orderDetailsPage.total).toHaveText(expectedTotal);
+        const expectedTotal = new Intl.NumberFormat('en-IE', {
+            style: 'currency',
+            currency: 'EUR',
+        }).format((orderProduct.priceCents * quantity) / 100);
 
-    await cartPage.goto();
+        const { orderNumber, confirmationURL } = await test.step('Place the order and capture its confirmation', async () => {
+            await cartPage.goto();
 
-    await expect(cartPage.emptyCartHeading).toBeVisible();
-    await expect(cartPage.cartItems).toHaveCount(0);
-    await expect(cartPage.placeOrderButton).toBeHidden();
-});
+            await expect(cartPage.placeOrderButton).toBeEnabled();
+            await cartPage.placeOrderButton.click();
 
-test('refreshing the confirmation page does not create another one', async ({ page, request, orderProduct }) => {
-    const cartPage = new CartPage(page);
-    const orderDetailsPage = new OrderDetailsPage(page);
-    const ordersPage = new OrdersPage(page);
-    const productId = orderProduct.id;
-    const productName = orderProduct.name;
-    const quantity = 1;
+            await expect(page).toHaveURL(/\/orders\/[^/?]+\?placed=1$/);
+            await expect(orderDetailsPage.heading).toHaveText('Order placed');
+            await expect(orderDetailsPage.orderNumber).toHaveText(/\S+/);
 
-    await ordersPage.goto();
+            const orderNumber = await orderDetailsPage.orderNumber.innerText();
+            const confirmationURL = page.url();
 
-    const initialOrderCount = await ordersPage.getOrdersCount();
-    expect(initialOrderCount).toBeGreaterThanOrEqual(0);
+            return { orderNumber, confirmationURL };
+        });
 
-    const expectedOrderCount = initialOrderCount + 1;
-    const expectedSummary =
-        `${expectedOrderCount} ${expectedOrderCount === 1 ? 'order' : 'orders'}`;
+        await test.step('Refresh the confirmation and verify the same order', async () => {
+            await page.reload();
 
-    const cart = await addCartItem(request, productId, quantity);
-    expect(cart.items).toHaveLength(1);
+            await expect(page).toHaveURL(confirmationURL);
+            await expect(orderDetailsPage.heading).toHaveText('Order placed');
+            await expect(orderDetailsPage.confirmationMessage).toBeVisible();
+            await expect(orderDetailsPage.orderNumber).toHaveText(orderNumber);
+            await expect(orderDetailsPage.status).toHaveText('Placed');
+            await expect(orderDetailsPage.orderItems).toHaveCount(1);
+            await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
+            await expect(orderDetailsPage.total).toHaveText(expectedTotal);
+        });
 
-    const expectedTotal = new Intl.NumberFormat('en-IE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format((orderProduct.priceCents * quantity) / 100);
+        await test.step('Verify that order history contains one new order', async () => {
+            await orderDetailsPage.viewOrdersLink.click();
 
-    await cartPage.goto();
-
-    await expect(cartPage.placeOrderButton).toBeEnabled();
-    await cartPage.placeOrderButton.click();
-
-    await expect(page).toHaveURL(/\/orders\/[^/?]+\?placed=1$/);
-    await expect(orderDetailsPage.heading).toHaveText('Order placed');
-    await expect(orderDetailsPage.orderNumber).toHaveText(/\S+/);
-
-    const orderNumber = await orderDetailsPage.orderNumber.innerText();
-    const confirmationURL = page.url();
-
-    await page.reload();
-
-    await expect(page).toHaveURL(confirmationURL);
-    await expect(orderDetailsPage.heading).toHaveText('Order placed');
-    await expect(orderDetailsPage.confirmationMessage).toBeVisible();
-    await expect(orderDetailsPage.orderNumber).toHaveText(orderNumber);
-    await expect(orderDetailsPage.status).toHaveText('Placed');
-    await expect(orderDetailsPage.orderItems).toHaveCount(1);
-    await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
-    await expect(orderDetailsPage.total).toHaveText(expectedTotal);
-
-    await orderDetailsPage.viewOrdersLink.click();
-
-    await expect(page).toHaveURL(/\/orders$/);
-    await expect(ordersPage.heading).toBeVisible();
-    await expect(ordersPage.resultsSummary).toHaveText(expectedSummary);
-    await expect(ordersPage.orderLink(orderNumber)).toBeVisible();
-    await expect(ordersPage.orderLink(orderNumber)).toHaveCount(1);
-});
+            await expect(page).toHaveURL(/\/orders$/);
+            await expect(ordersPage.heading).toBeVisible();
+            await expect(ordersPage.resultsSummary).toHaveText(expectedSummary);
+            await expect(ordersPage.orderLink(orderNumber)).toBeVisible();
+            await expect(ordersPage.orderLink(orderNumber)).toHaveCount(1);
+        });
+    });
 
 test('customer can open a placed order from My orders', async ({ page, request, orderProduct }) => {
     const cartPage = new CartPage(page);
@@ -459,37 +485,43 @@ test('order history can be loaded after retrying a server error', async ({ page 
         totalPages: 1,
     };
 
-    await page.route(/\/api\/orders(?:\?.*)?$/, async (route) => {
-        if (historyUnavailable) {
-            await route.fulfill({
-                status: 500,
-                json: serverError
-            });
-            return;
-        }
+    await test.step('Simulate an unavailable order history', async () => {
+        await page.route(/\/api\/orders(?:\?.*)?$/, async (route) => {
+            if (historyUnavailable) {
+                await route.fulfill({
+                    status: 500,
+                    json: serverError
+                });
+                return;
+            }
 
-        await route.fulfill({
-            status: 200,
-            json: history,
+            await route.fulfill({
+                status: 200,
+                json: history,
+            });
         });
     });
 
-    await ordersPage.goto();
+    await test.step('Verify the order history error state', async () => {
+        await ordersPage.goto();
 
-    await expect(ordersPage.errorMessage).toBeVisible();
-    await expect(ordersPage.errorMessage).toContainText(serverError.error.message);
-    await expect(ordersPage.retryButton).toBeVisible();
-    await expect(ordersPage.ordersTable).toBeHidden();
-    await expect(ordersPage.emptyOrders).toBeHidden();
+        await expect(ordersPage.errorMessage).toBeVisible();
+        await expect(ordersPage.errorMessage).toContainText(serverError.error.message);
+        await expect(ordersPage.retryButton).toBeVisible();
+        await expect(ordersPage.ordersTable).toBeHidden();
+        await expect(ordersPage.emptyOrders).toBeHidden();
+    });
 
-    historyUnavailable = false;
-    await ordersPage.retryButton.click();
+    await test.step('Retry and verify the recovered order history', async () => {
+        historyUnavailable = false;
+        await ordersPage.retryButton.click();
 
-    await expect(ordersPage.errorMessage).toBeHidden();
-    await expect(ordersPage.retryButton).toBeHidden();
-    await expect(ordersPage.ordersTable).toBeVisible();
-    await expect(ordersPage.orderNumbers).toHaveText([mockedOrder.number]);
-    await expect(ordersPage.resultsSummary).toHaveText('1 order');
+        await expect(ordersPage.errorMessage).toBeHidden();
+        await expect(ordersPage.retryButton).toBeHidden();
+        await expect(ordersPage.ordersTable).toBeVisible();
+        await expect(ordersPage.orderNumbers).toHaveText([mockedOrder.number]);
+        await expect(ordersPage.resultsSummary).toHaveText('1 order');
+    });
 });
 
 test('customer can recover a lost order confirmation without creating a duplicate', async ({ page, request, orderProduct, }) => {
@@ -506,78 +538,92 @@ test('customer can recover a lost order confirmation without creating a duplicat
         idempotencyKey?: string;
     } = {};
 
-    await ordersPage.goto();
+    const initialOrderCount = await test.step('Capture the initial order count', async () => {
+        await ordersPage.goto();
 
-    const initialOrderCount = await ordersPage.getOrdersCount();
-    expect(initialOrderCount).toBeGreaterThanOrEqual(0);
+        const initialOrderCount = await ordersPage.getOrdersCount();
+        expect(initialOrderCount).toBeGreaterThanOrEqual(0);
 
-    const cart = await addCartItem(request, productId, quantity);
-    expect(cart.items).toHaveLength(1);
+        return initialOrderCount;
+    });
+
+    await test.step('Prepare the cart through the API', async () => {
+        const cart = await addCartItem(request, productId, quantity);
+        expect(cart.items).toHaveLength(1);
+    });
 
     const expectedTotal = new Intl.NumberFormat('en-IE', {
         style: 'currency',
         currency: 'EUR',
     }).format((orderProduct.priceCents * quantity) / 100);
 
-    await page.route(/\/api\/orders$/, async (route) => {
-        if (route.request().method() !== 'POST') {
-            await route.continue();
-            return;
-        }
+    await test.step('Simulate a lost first order confirmation', async () => {
+        await page.route(/\/api\/orders$/, async (route) => {
+            if (route.request().method() !== 'POST') {
+                await route.continue();
+                return;
+            }
 
-        placementRequests += 1;
-        const idempotencyKey = route.request().headers()['idempotency-key'];
+            placementRequests += 1;
+            const idempotencyKey = route.request().headers()['idempotency-key'];
 
-        if (placementRequests === 1) {
-            captured.idempotencyKey = idempotencyKey;
-            expect(captured.idempotencyKey).toBeTruthy();
+            if (placementRequests === 1) {
+                captured.idempotencyKey = idempotencyKey;
+                expect(captured.idempotencyKey).toBeTruthy();
+
+                const response = await route.fetch({ maxRetries: 0 });
+                expect(response.status()).toBe(201);
+
+                const body: OrderPlacementResponse = await response.json();
+                expect(body.replayed).toBe(false);
+                captured.order = body.order;
+
+                await route.abort('failed');
+                return;
+            }
+
+            expect(idempotencyKey).toBe(captured.idempotencyKey);
 
             const response = await route.fetch({ maxRetries: 0 });
-            expect(response.status()).toBe(201);
+            expect(response.status()).toBe(200);
 
             const body: OrderPlacementResponse = await response.json();
-            expect(body.replayed).toBe(false);
-            captured.order = body.order;
+            expect(body).toMatchObject({
+                replayed: true,
+                order: {
+                    id: captured.order?.id,
+                },
+            });
 
-            await route.abort('failed');
-            return;
-        }
-
-        expect(idempotencyKey).toBe(captured.idempotencyKey);
-
-        const response = await route.fetch({ maxRetries: 0 });
-        expect(response.status()).toBe(200);
-
-        const body: OrderPlacementResponse = await response.json();
-        expect(body).toMatchObject({
-            replayed: true,
-            order: {
-                id: captured.order?.id,
-            },
+            await route.fulfill({ response });
         });
-
-        await route.fulfill({ response });
     });
 
-    await cartPage.goto();
+    await test.step('Review the cart before checkout', async () => {
+        await cartPage.goto();
 
-    await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
-    await expect(cartPage.total).toHaveText(expectedTotal);
-    await expect(cartPage.placeOrderButton).toBeEnabled();
+        await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
+        await expect(cartPage.total).toHaveText(expectedTotal);
+        await expect(cartPage.placeOrderButton).toBeEnabled();
+    });
 
-    await cartPage.placeOrderButton.click();
+    await test.step('Place the order and verify the recovery state', async () => {
+        await cartPage.placeOrderButton.click();
 
-    await expect(page).toHaveURL(/\/cart$/);
-    await expect(cartPage.errorMessage).toHaveText('We could not connect. Please try again.');
-    await expect(cartPage.recoveryNotice).toBeVisible();
-    await expect(cartPage.retryOrderConfirmationButton).toBeEnabled();
-    await expect(cartPage.placeOrderButton).toBeDisabled();
+        await expect(page).toHaveURL(/\/cart$/);
+        await expect(cartPage.errorMessage).toHaveText('We could not connect. Please try again.');
+        await expect(cartPage.recoveryNotice).toBeVisible();
+        await expect(cartPage.retryOrderConfirmationButton).toBeEnabled();
+        await expect(cartPage.placeOrderButton).toBeDisabled();
+    });
 
-    await page.reload();
+    await test.step('Refresh the page and verify that recovery is still available', async () => {
+        await page.reload();
 
-    await expect(cartPage.recoveryNotice).toBeVisible();
-    await expect(cartPage.emptyCartHeading).toBeVisible();
-    await expect(cartPage.retryOrderConfirmationButton).toBeEnabled();
+        await expect(cartPage.recoveryNotice).toBeVisible();
+        await expect(cartPage.emptyCartHeading).toBeVisible();
+        await expect(cartPage.retryOrderConfirmationButton).toBeEnabled();
+    });
 
     const savedOrder = captured.order;
 
@@ -585,27 +631,33 @@ test('customer can recover a lost order confirmation without creating a duplicat
         throw new Error('The initial order response was not captured.');
     }
 
-    await cartPage.retryOrderConfirmationButton.click();
+    await test.step('Recover the confirmation for the original order', async () => {
+        await cartPage.retryOrderConfirmationButton.click();
 
-    await expect(page).toHaveURL((url) =>
-        url.pathname === `/orders/${savedOrder.id}` &&
-        url.searchParams.get('placed') === '1',
-    );
-    await expect(orderDetailsPage.heading).toHaveText('Order placed');
-    await expect(orderDetailsPage.orderNumber).toHaveText(savedOrder.number);
-    await expect(orderDetailsPage.status).toHaveText('Placed');
-    await expect(orderDetailsPage.orderItems).toHaveCount(1);
-    await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
-    await expect(orderDetailsPage.total).toHaveText(expectedTotal);
-    expect(placementRequests).toBe(2);
+        await expect(page).toHaveURL((url) =>
+            url.pathname === `/orders/${savedOrder.id}` &&
+            url.searchParams.get('placed') === '1',
+        );
+        await expect(orderDetailsPage.heading).toHaveText('Order placed');
+        await expect(orderDetailsPage.orderNumber).toHaveText(savedOrder.number);
+        await expect(orderDetailsPage.status).toHaveText('Placed');
+        await expect(orderDetailsPage.orderItems).toHaveCount(1);
+        await expect(orderDetailsPage.itemQuantity(productName)).toHaveText(String(quantity));
+        await expect(orderDetailsPage.total).toHaveText(expectedTotal);
+        expect(placementRequests).toBe(2);
+    });
 
-    await orderDetailsPage.viewOrdersLink.click();
+    await test.step('Verify that only one order was created', async () => {
+        await orderDetailsPage.viewOrdersLink.click();
 
-    expect(await ordersPage.getOrdersCount()).toBe(initialOrderCount + 1);
-    await expect(ordersPage.orderLink(savedOrder.number)).toBeVisible();
+        expect(await ordersPage.getOrdersCount()).toBe(initialOrderCount + 1);
+        await expect(ordersPage.orderLink(savedOrder.number)).toBeVisible();
+    });
 
-    await cartPage.goto();
+    await test.step('Verify that the cart is empty and recovery is complete', async () => {
+        await cartPage.goto();
 
-    await expect(cartPage.emptyCartHeading).toBeVisible();
-    await expect(cartPage.recoveryNotice).toBeHidden();
+        await expect(cartPage.emptyCartHeading).toBeVisible();
+        await expect(cartPage.recoveryNotice).toBeHidden();
+    });
 });

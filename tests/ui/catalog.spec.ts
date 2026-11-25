@@ -21,22 +21,24 @@ test('explore the collection scrolls to the catalog', async ({ page }) => {
     await expect(catalogPage.collectionHeading).toBeInViewport({ ratio: 1 });
 });
 
-test('customer can find a product by SKU', async ({ page }) => {
-    const catalogPage = new CatalogPage(page);
-    const sku = 'SR-101';
+test('customer can find a product by SKU',
+    { tag: '@smoke' },
+    async ({ page }) => {
+        const catalogPage = new CatalogPage(page);
+        const sku = 'SR-101';
 
-    await catalogPage.goto();
-    await expect(catalogPage.firstProductCard).toBeVisible();
+        await catalogPage.goto();
+        await expect(catalogPage.firstProductCard).toBeVisible();
 
-    await catalogPage.searchFor(sku);
+        await catalogPage.searchFor(sku);
 
-    await expect(catalogPage.productCount).toBeVisible();
-    await expect(catalogPage.productCount).toHaveText('1');
-    await expect(catalogPage.productCards).toHaveCount(1);
-    await expect(catalogPage.productTitles).toHaveText('Arc mechanical keyboard');
-    await expect(catalogPage.productCards).toContainText(sku);
-    await expect(catalogPage.resultsSummary).toContainText('1 product matching');
-});
+        await expect(catalogPage.productCount).toBeVisible();
+        await expect(catalogPage.productCount).toHaveText('1');
+        await expect(catalogPage.productCards).toHaveCount(1);
+        await expect(catalogPage.productTitles).toHaveText('Arc mechanical keyboard');
+        await expect(catalogPage.productCards).toContainText(sku);
+        await expect(catalogPage.resultsSummary).toContainText('1 product matching');
+    });
 
 test('customer sees empty results for an unmatched search', async ({ page }) => {
     const catalogPage = new CatalogPage(page);
@@ -480,37 +482,39 @@ test('applying a category filter returns to page 1', async ({ page }) => {
     await expect(catalogPage.nextPageButton).toBeDisabled();
 });
 
-test('opening a product displays its details', async ({ page }) => {
-    const catalogPage = new CatalogPage(page);
-    const productDetailsPage = new ProductDetailsPage(page);
-    const productName = 'Arc mechanical keyboard';
+test('opening a product displays its details',
+    { tag: '@sanity' },
+    async ({ page }) => {
+        const catalogPage = new CatalogPage(page);
+        const productDetailsPage = new ProductDetailsPage(page);
+        const productName = 'Arc mechanical keyboard';
 
-    await catalogPage.goto();
-    await expect(catalogPage.firstProductCard).toBeVisible();
+        await catalogPage.goto();
+        await expect(catalogPage.firstProductCard).toBeVisible();
 
-    await catalogPage.productLink(productName).click();
+        await catalogPage.productLink(productName).click();
 
-    await expect(page).toHaveURL(/\/products\/arc-keyboard\/?$/);
-    await expect(productDetailsPage.heading).toHaveText(productName);
-    await expect(productDetailsPage.sku).toHaveText('SR-101');
-    await expect(productDetailsPage.price).toHaveText('€129.00');
-    await expect(productDetailsPage.availability).toHaveText('In stock');
-    await expect(productDetailsPage.stockQuantity).toHaveText(
-        '18 units currently available.',
-    );
+        await expect(page).toHaveURL(/\/products\/arc-keyboard\/?$/);
+        await expect(productDetailsPage.heading).toHaveText(productName);
+        await expect(productDetailsPage.sku).toHaveText('SR-101');
+        await expect(productDetailsPage.price).toHaveText('€129.00');
+        await expect(productDetailsPage.availability).toHaveText('In stock');
+        await expect(productDetailsPage.stockQuantity).toHaveText(
+            '18 units currently available.',
+        );
 
-    await expect(productDetailsPage.description).toBeVisible();
-    await expect(productDetailsPage.description).toHaveText(/\S/);
+        await expect(productDetailsPage.description).toBeVisible();
+        await expect(productDetailsPage.description).toHaveText(/\S/);
 
-    await expect(productDetailsPage.specificationTerms).toHaveText([
-        'Layout',
-        'Connection',
-        'Switches',
-    ]);
+        await expect(productDetailsPage.specificationTerms).toHaveText([
+            'Layout',
+            'Connection',
+            'Switches',
+        ]);
 
-    await expect(productDetailsPage.specificationDefinitions).toHaveText([
-        '75 percent ANSI',
-        'USB C and Bluetooth',
-        'Silent tactile',
-    ]);
-});
+        await expect(productDetailsPage.specificationDefinitions).toHaveText([
+            '75 percent ANSI',
+            'USB C and Bluetooth',
+            'Silent tactile',
+        ]);
+    });

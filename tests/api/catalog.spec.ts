@@ -101,43 +101,45 @@ test('API rejects a search query longer than 100 characters', async ({ request }
     expect(body).not.toHaveProperty('items');
 });
 
-test('API category filter returns matching products: Audio', async ({ request }) => {
-    const category = 'Audio';
-    const expectedSkus = [
-        'SR-107',
-        'SR-113',
-        'SR-118',
-        'SR-121',
-    ];
+test('API category filter returns matching products: Audio',
+    { tag: '@sanity' },
+    async ({ request }) => {
+        const category = 'Audio';
+        const expectedSkus = [
+            'SR-107',
+            'SR-113',
+            'SR-118',
+            'SR-121',
+        ];
 
-    const response = await request.get('/api/products', {
-        params: {
-            category,
+        const response = await request.get('/api/products', {
+            params: {
+                category,
+            }
+        });
+
+        expect(response.status()).toBe(200);
+
+        const contentType = response.headers()['content-type'];
+        const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+
+        expect(mediaType).toBe('application/json');
+
+        const body: CatalogResponse = await response.json();
+        expect(body).toMatchObject({
+            total: expectedSkus.length,
+            page: 1,
+            pageSize: 6,
+            totalPages: 1
+        });
+
+        const actualSkus = body.items.map((product) => product.sku);
+        expect(actualSkus).toEqual(expectedSkus);
+
+        for (const product of body.items) {
+            expect(product.category).toBe(category);
         }
     });
-
-    expect(response.status()).toBe(200);
-
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
-
-    expect(mediaType).toBe('application/json');
-
-    const body: CatalogResponse = await response.json();
-    expect(body).toMatchObject({
-        total: expectedSkus.length,
-        page: 1,
-        pageSize: 6,
-        totalPages: 1
-    });
-
-    const actualSkus = body.items.map((product) => product.sku);
-    expect(actualSkus).toEqual(expectedSkus);
-
-    for (const product of body.items) {
-        expect(product.category).toBe(category);
-    }
-});
 
 test('API rejects an unsupported category', async ({ request }) => {
     const invalidCategory = 'Gaming';
@@ -396,40 +398,42 @@ test('API rejects an unsupported sort option', async ({ request }) => {
     expect(body).not.toHaveProperty('items');
 });
 
-test('API returns the default catalog page', async ({ request }) => {
-    const expectedNames = [
-        'Arc mechanical keyboard',
-        'Beam desk lamp',
-        'Canvas desk mat',
-        'Clarity webcam',
-        'Contour wireless mouse',
-        'Dock USB C hub',
-    ];
+test('API returns the default catalog page',
+    { tag: ['@smoke', '@sanity'], },
+    async ({ request }) => {
+        const expectedNames = [
+            'Arc mechanical keyboard',
+            'Beam desk lamp',
+            'Canvas desk mat',
+            'Clarity webcam',
+            'Contour wireless mouse',
+            'Dock USB C hub',
+        ];
 
-    const response = await request.get('/api/products');
-    expect(response.status()).toBe(200);
+        const response = await request.get('/api/products');
+        expect(response.status()).toBe(200);
 
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+        const contentType = response.headers()['content-type'];
+        const mediaType = contentType?.split(';')[0].trim().toLowerCase();
 
-    expect(mediaType).toBe('application/json');
+        expect(mediaType).toBe('application/json');
 
-    const body: CatalogResponse = await response.json();
+        const body: CatalogResponse = await response.json();
 
-    expect(body.page).toBe(1);
-    expect(body.pageSize).toBe(6);
-    expect(Number.isInteger(body.total)).toBe(true);
-    expect(body.total).toBeGreaterThanOrEqual(expectedNames.length);
-    expect(body.totalPages).toBe(Math.ceil(body.total / body.pageSize));
+        expect(body.page).toBe(1);
+        expect(body.pageSize).toBe(6);
+        expect(Number.isInteger(body.total)).toBe(true);
+        expect(body.total).toBeGreaterThanOrEqual(expectedNames.length);
+        expect(body.totalPages).toBe(Math.ceil(body.total / body.pageSize));
 
-    const actualNames = body.items.map((product) => product.name);
-    expect(actualNames).toEqual(expectedNames);
+        const actualNames = body.items.map((product) => product.name);
+        expect(actualNames).toEqual(expectedNames);
 
-    for (const product of body.items) {
-        expect(product).not.toHaveProperty('costCents');
-        expect(product).not.toHaveProperty('supplier');
-    }
-});
+        for (const product of body.items) {
+            expect(product).not.toHaveProperty('costCents');
+            expect(product).not.toHaveProperty('supplier');
+        }
+    });
 
 test('API returns empty items for a page beyond the last page', async ({ request }) => {
     const initialResponse = await request.get('/api/products');

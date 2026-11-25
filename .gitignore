@@ -24,3 +24,7 @@
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Generated Allure results and reports
+/allure-results/
+/allure-report/

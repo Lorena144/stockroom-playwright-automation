@@ -28,69 +28,73 @@ test('customer sees an empty cart', async ({ page }) => {
     await expect(cartPage.placeOrderButton).toBeHidden();
 });
 
-test('customer can add one product to the cart from the catalog', async ({ page }) => {
-    const catalogPage = new CatalogPage(page);
-    const cartPage = new CartPage(page);
-    const productName = 'Arc mechanical keyboard';
+test('customer can add one product to the cart from the catalog',
+    { tag: '@smoke' },
+    async ({ page }) => {
+        const catalogPage = new CatalogPage(page);
+        const cartPage = new CartPage(page);
+        const productName = 'Arc mechanical keyboard';
 
-    await catalogPage.goto();
-    const productCard = catalogPage.productCard(productName);
-    await expect(productCard).toBeVisible();
+        await catalogPage.goto();
+        const productCard = catalogPage.productCard(productName);
+        await expect(productCard).toBeVisible();
 
-    const productPrice = await catalogPage.productPrice(productName)
-        .innerText();
+        const productPrice = await catalogPage.productPrice(productName)
+            .innerText();
 
-    await catalogPage.addToCartButton(productName).click();
+        await catalogPage.addToCartButton(productName).click();
 
-    await expect(catalogPage.addToCartMessage(productName)).toContainText('1 unit added to your cart.');
+        await expect(catalogPage.addToCartMessage(productName)).toContainText('1 unit added to your cart.');
 
-    await catalogPage.viewCartLink(productName).click();
+        await catalogPage.viewCartLink(productName).click();
 
-    await expect(page).toHaveURL(/\/cart$/);
-    await expect(cartPage.heading).toBeVisible();
-    await expect(cartPage.cartItems).toHaveCount(1);
+        await expect(page).toHaveURL(/\/cart$/);
+        await expect(cartPage.heading).toBeVisible();
+        await expect(cartPage.cartItems).toHaveCount(1);
 
-    const cartItem = cartPage.item(productName);
-    await expect(cartItem).toBeVisible();
+        const cartItem = cartPage.item(productName);
+        await expect(cartItem).toBeVisible();
 
-    await expect(cartPage.quantityInput(productName)).toHaveValue('1');
+        await expect(cartPage.quantityInput(productName)).toHaveValue('1');
 
-    await expect(cartPage.cartItemTotal(productName)).toHaveText(productPrice);
-    await expect(cartPage.total).toHaveText(productPrice);
-    await expect(cartPage.placeOrderButton).toBeEnabled();
-});
+        await expect(cartPage.cartItemTotal(productName)).toHaveText(productPrice);
+        await expect(cartPage.total).toHaveText(productPrice);
+        await expect(cartPage.placeOrderButton).toBeEnabled();
+    });
 
-test('customer can update a product quantity and cart totals', async ({ page, request }) => {
-    const cartPage = new CartPage(page);
-    const productId = 'arc-keyboard';
-    const productName = 'Arc mechanical keyboard';
-    const quantity = 3;
+test('customer can update a product quantity and cart totals',
+    { tag: '@sanity' },
+    async ({ page, request }) => {
+        const cartPage = new CartPage(page);
+        const productId = 'arc-keyboard';
+        const productName = 'Arc mechanical keyboard';
+        const quantity = 3;
 
-    const cart = await addCartItem(request, productId);
-    expect(cart.items).toHaveLength(1);
+        const cart = await addCartItem(request, productId);
+        expect(cart.items).toHaveLength(1);
 
-    const expectedTotal = new Intl.NumberFormat('en-IE', {
-        style: 'currency',
-        currency: 'EUR'
-    }).format((cart.items[0].unitPriceCents * quantity) / 100);
+        const expectedTotal = new Intl.NumberFormat('en-IE', {
+            style: 'currency',
+            currency: 'EUR'
+        }).format((cart.items[0].unitPriceCents * quantity) / 100);
 
-    await cartPage.goto();
-    await expect(cartPage.quantityInput(productName)).toHaveValue('1');
+        await cartPage.goto();
+        await expect(cartPage.quantityInput(productName)).toHaveValue('1');
 
-    await (cartPage.quantityInput(productName)).fill(String(quantity));
-    await cartPage.updateQuantityButton(productName).click();
+        await (cartPage.quantityInput(productName)).fill(String(quantity));
+        await cartPage.updateQuantityButton(productName).click();
 
-    await expect(cartPage.statusMessage).toHaveText('Quantity updated.');
-    await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
+        await expect(cartPage.statusMessage).toHaveText('Quantity updated.');
+        await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
 
-    await expect(cartPage.cartItemTotal(productName)).toHaveText(expectedTotal);
-    await expect(cartPage.total).toHaveText(expectedTotal);
+        await expect(cartPage.cartItemTotal(productName)).toHaveText(expectedTotal);
+        await expect(cartPage.total).toHaveText(expectedTotal);
 
-    await page.reload();
+        await page.reload();
 
-    await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
-    await expect(cartPage.total).toHaveText(expectedTotal);
-});
+        await expect(cartPage.quantityInput(productName)).toHaveValue(String(quantity));
+        await expect(cartPage.total).toHaveText(expectedTotal);
+    });
 
 test('customer can remove the last product from the cart', async ({ page, request }) => {
     const cartPage = new CartPage(page);
@@ -242,49 +246,51 @@ test('customer can add a chosen quantity from product details', async ({ page, r
     await expect(cartPage.total).toHaveText(expectedTotal);
 });
 
-test('cart rejects a quantity greater than the available stock', async ({ page, request }) => {
-    const cartPage = new CartPage(page);
-    const productId = 'arc-keyboard';
-    const productName = 'Arc mechanical keyboard';
+test('cart rejects a quantity greater than the available stock',
+    { tag: '@sanity' },
+    async ({ page, request }) => {
+        const cartPage = new CartPage(page);
+        const productId = 'arc-keyboard';
+        const productName = 'Arc mechanical keyboard';
 
-    const cart = await addCartItem(request, productId);
-    expect(cart.items).toHaveLength(1);
+        const cart = await addCartItem(request, productId);
+        expect(cart.items).toHaveLength(1);
 
-    const stock = cart.items[0].stock;
-    const invalidStock = stock + 1;
+        const stock = cart.items[0].stock;
+        const invalidStock = stock + 1;
 
-    expect(invalidStock).toBeLessThanOrEqual(99);
+        expect(invalidStock).toBeLessThanOrEqual(99);
 
-    const expectedTotal = new Intl.NumberFormat('en-IE', {
-        style: 'currency',
-        currency: 'EUR',
-    }).format(cart.totalCents / 100);
+        const expectedTotal = new Intl.NumberFormat('en-IE', {
+            style: 'currency',
+            currency: 'EUR',
+        }).format(cart.totalCents / 100);
 
-    await cartPage.goto();
-    await expect(cartPage.quantityInput(productName)).toHaveValue('1');
-    await expect(cartPage.total).toHaveText(expectedTotal);
+        await cartPage.goto();
+        await expect(cartPage.quantityInput(productName)).toHaveValue('1');
+        await expect(cartPage.total).toHaveText(expectedTotal);
 
-    await cartPage.quantityInput(productName).fill(String(invalidStock));
-    await cartPage.updateQuantityButton(productName).click();
+        await cartPage.quantityInput(productName).fill(String(invalidStock));
+        await cartPage.updateQuantityButton(productName).click();
 
-    await expect(cartPage.errorMessage).toBeVisible();
-    await expect(cartPage.errorMessage).toContainText(
-        'The requested quantity is no longer available.'
-    );
+        await expect(cartPage.errorMessage).toBeVisible();
+        await expect(cartPage.errorMessage).toContainText(
+            'The requested quantity is no longer available.'
+        );
 
-    await expect(cartPage.errorMessage).toContainText(
-        `Only ${stock} units are available.`
-    );
+        await expect(cartPage.errorMessage).toContainText(
+            `Only ${stock} units are available.`
+        );
 
-    await expect(cartPage.cartItemTotal(productName)).toHaveText(expectedTotal);
-    await expect(cartPage.total).toHaveText(expectedTotal);
+        await expect(cartPage.cartItemTotal(productName)).toHaveText(expectedTotal);
+        await expect(cartPage.total).toHaveText(expectedTotal);
 
-    await page.reload();
+        await page.reload();
 
-    await expect(cartPage.cartItems).toHaveCount(1);
-    await expect(cartPage.quantityInput(productName)).toHaveValue('1');
-    await expect(cartPage.total).toHaveText(expectedTotal);
-});
+        await expect(cartPage.cartItems).toHaveCount(1);
+        await expect(cartPage.quantityInput(productName)).toHaveValue('1');
+        await expect(cartPage.total).toHaveText(expectedTotal);
+    });
 
 test('cart rejects a zero quantity without removing the product', async ({ page, request }) => {
     const cartPage = new CartPage(page);

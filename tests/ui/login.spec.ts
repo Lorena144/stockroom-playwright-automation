@@ -16,38 +16,42 @@ test('sign-in page displays the required controls', async ({ page }) => {
     await expect(loginPage.signInButton).toBeEnabled();
 });
 
-test('customer can sign in with valid credentials', async ({ page }) => {
-    const email = requiredEnv('CUSTOMER_EMAIL');
-    const password = requiredEnv('CUSTOMER_PASSWORD');
+test('customer can sign in with valid credentials',
+    { tag: '@smoke' },
+    async ({ page }) => {
+        const email = requiredEnv('CUSTOMER_EMAIL');
+        const password = requiredEnv('CUSTOMER_PASSWORD');
 
-    const loginPage = new LoginPage(page);
-    const catalogPage = new CatalogPage(page);
+        const loginPage = new LoginPage(page);
+        const catalogPage = new CatalogPage(page);
 
-    await loginPage.goto();
-    await loginPage.signIn(email, password);
+        await loginPage.goto();
+        await loginPage.signIn(email, password);
 
-    await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
-    await expect(catalogPage.heading).toBeVisible();
-    await expect(catalogPage.accountMenu).toContainText('Customer account');
-    await expect(catalogPage.signOutButton).toBeVisible();
-});
+        await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
+        await expect(catalogPage.heading).toBeVisible();
+        await expect(catalogPage.accountMenu).toContainText('Customer account');
+        await expect(catalogPage.signOutButton).toBeVisible();
+    });
 
-test('rejects an unknown email with a generic credentials message', async ({ page }) => {
+test('rejects an unknown email with a generic credentials message',
+    { tag: '@sanity' },
+    async ({ page }) => {
 
-    const loginPage = new LoginPage(page);
-    const unknownEmail = `unknown-${randomUUID()}@stockroom.test`;
+        const loginPage = new LoginPage(page);
+        const unknownEmail = `unknown-${randomUUID()}@stockroom.test`;
 
-    await loginPage.goto();
-    await loginPage.signIn(unknownEmail, 'InvalidPassword123!');
+        await loginPage.goto();
+        await loginPage.signIn(unknownEmail, 'InvalidPassword123!');
 
-    await expect(loginPage.errorMessage).toBeVisible();
-    await expect(loginPage.errorMessage).toHaveText(
-        'The email or password is incorrect.'
-    );
+        await expect(loginPage.errorMessage).toBeVisible();
+        await expect(loginPage.errorMessage).toHaveText(
+            'The email or password is incorrect.'
+        );
 
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(loginPage.signInButton).toBeEnabled();
-});
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(loginPage.signInButton).toBeEnabled();
+    });
 
 test('requires a password before submitting sign-in', async ({ page }) => {
     const loginPage = new LoginPage(page);
@@ -116,29 +120,31 @@ test('customer can show and hide the entered password', async ({ page }) => {
     await expect(loginPage.passwordInput).toHaveValue(password);
 });
 
-test('customer can sign out and cannot reopen the catalog', async ({ page }) => {
-    const email = requiredEnv('CUSTOMER_EMAIL');
-    const password = requiredEnv('CUSTOMER_PASSWORD');
+test('customer can sign out and cannot reopen the catalog',
+    { tag: '@sanity' },
+    async ({ page }) => {
+        const email = requiredEnv('CUSTOMER_EMAIL');
+        const password = requiredEnv('CUSTOMER_PASSWORD');
 
-    const loginPage = new LoginPage(page);
-    const catalogPage = new CatalogPage(page);
+        const loginPage = new LoginPage(page);
+        const catalogPage = new CatalogPage(page);
 
-    await loginPage.goto();
-    await loginPage.signIn(email, password);
+        await loginPage.goto();
+        await loginPage.signIn(email, password);
 
-    await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
-    await expect(catalogPage.heading).toBeVisible();
+        await expect(page).toHaveURL(/\/catalog(?:\?.*)?$/);
+        await expect(catalogPage.heading).toBeVisible();
 
-    await catalogPage.signOutButton.click();
+        await catalogPage.signOutButton.click();
 
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(loginPage.heading).toBeVisible();
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(loginPage.heading).toBeVisible();
 
-    await page.goto('/catalog');
+        await page.goto('/catalog');
 
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(loginPage.emailInput).toBeVisible();
-});
+        await expect(page).toHaveURL(/\/login$/);
+        await expect(loginPage.emailInput).toBeVisible();
+    });
 
 test('customer remains signed in after refreshing the catalog', async ({ page }) => {
     const email = requiredEnv('CUSTOMER_EMAIL');

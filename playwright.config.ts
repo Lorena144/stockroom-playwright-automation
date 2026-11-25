@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadEnvFile } from 'node:process';
+import type { ReporterDescription } from '@playwright/test';
 
 const envPath = resolve(__dirname, '.env');
 
@@ -15,9 +16,18 @@ if (!baseURL) {
   throw new Error('UI_BASE_URL is missing. Set it in .env or the environment.');
 }
 
+const allureReporter: ReporterDescription = [
+  'allure-playwright',
+  {
+    resultsDir: 'allure-results',
+    detail: false,
+  },
+];
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
+  tag: '@regression',
 
   timeout: 30_000,
 
@@ -30,8 +40,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 1,
 
   reporter: process.env.CI
-    ? [['list']]
-    : [['list'], ['html', { open: 'never' }]],
+    ? [['list'], allureReporter]
+    : [['list'], ['html', { open: 'never' }], allureReporter],
 
   outputDir: 'test-results',
 

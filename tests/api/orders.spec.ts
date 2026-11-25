@@ -14,85 +14,97 @@ import { placeOrder } from '../../utils/api-orders';
 import { requiredEnv } from '../../utils/env';
 import { setDemoProductStock } from '../../utils/demo-product';
 
-test('API places an order from the cart and updates stock', async ({ request, orderProduct }) => {
-    const productId = orderProduct.id;
-    const quantity = 2;
-    const expectedTotalCents = orderProduct.priceCents * quantity;
-    const idempotencyKey = randomUUID();
-    const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
+test('API places an order from the cart and updates stock',
+    { tag: ['@smoke', '@sanity'] },
+    async ({ request, orderProduct }) => {
+        const productId = orderProduct.id;
+        const quantity = 2;
+        const expectedTotalCents = orderProduct.priceCents * quantity;
+        const idempotencyKey = randomUUID();
+        const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
 
-    const cart = await addCartItem(request, productId, quantity);
+        const cart = await test.step('Prepare the cart', async () => {
+            const cart = await addCartItem(request, productId, quantity);
 
-    expect(cart.items).toHaveLength(1);
-    expect(cart.totalQuantity).toBe(quantity);
+            expect(cart.items).toHaveLength(1);
+            expect(cart.totalQuantity).toBe(quantity);
 
-    const csrfToken = await getCsrfToken(request);
+            return cart;
+        });
 
-    const response = await request.post('/api/orders', {
-        headers: {
-            Origin: origin,
-            'X-CSRF-Token': csrfToken,
-            'Idempotency-Key': idempotencyKey,
-        },
-        data: {
-            cartVersion: cart.version,
-            checkoutToken: cart.checkoutToken,
-        },
+        await test.step('Place the order and verify its details', async () => {
+            const csrfToken = await getCsrfToken(request);
+
+            const response = await request.post('/api/orders', {
+                headers: {
+                    Origin: origin,
+                    'X-CSRF-Token': csrfToken,
+                    'Idempotency-Key': idempotencyKey,
+                },
+                data: {
+                    cartVersion: cart.version,
+                    checkoutToken: cart.checkoutToken,
+                },
+            });
+
+
+            expect(response.status()).toBe(201);
+
+            const contentType = response.headers()['content-type'];
+            const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+
+            expect(mediaType).toBe('application/json');
+
+            const body: OrderPlacementResponse = await response.json();
+            const order = body.order;
+
+            expect(body.replayed).toBe(false);
+            expect(order).toMatchObject({
+                status: 'placed',
+                currency: 'EUR',
+                totalCents: expectedTotalCents,
+                itemCount: 1,
+                totalQuantity: quantity,
+                createdAt: expect.any(String),
+            });
+
+            expect(order.items).toEqual([
+                {
+                    productId,
+                    sku: orderProduct.sku,
+                    name: orderProduct.name,
+                    quantity,
+                    unitPriceCents: orderProduct.priceCents,
+                    subtotalCents: expectedTotalCents,
+                },
+            ]);
+
+            const orderId = order.id;
+            expect(response.headers()['location']).toBe(`/api/orders/${orderId}`);
+        });
+
+        await test.step('Verify that the cart is empty', async () => {
+            const cartResponse = await request.get('/api/cart');
+            expect(cartResponse.status()).toBe(200);
+
+            const cartBody: CartResponse = await cartResponse.json();
+            expect(cartBody.cart).toMatchObject({
+                items: [],
+                itemCount: 0,
+                totalQuantity: 0,
+                totalCents: 0,
+                canCheckout: false,
+            });
+        });
+
+        await test.step('Verify that stock decreased once', async () => {
+            const productResponse = await request.get(`/api/products/${productId}`);
+            expect(productResponse.status()).toBe(200);
+
+            const productBody: ProductDetailsResponse = await productResponse.json();
+            expect(productBody.product.stock).toBe(orderProduct.stock - quantity);
+        });
     });
-
-
-    expect(response.status()).toBe(201);
-
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
-
-    expect(mediaType).toBe('application/json');
-
-    const body: OrderPlacementResponse = await response.json();
-    const order = body.order;
-
-    expect(body.replayed).toBe(false);
-    expect(order).toMatchObject({
-        status: 'placed',
-        currency: 'EUR',
-        totalCents: expectedTotalCents,
-        itemCount: 1,
-        totalQuantity: quantity,
-        createdAt: expect.any(String),
-    });
-
-    expect(order.items).toEqual([
-        {
-            productId,
-            sku: orderProduct.sku,
-            name: orderProduct.name,
-            quantity,
-            unitPriceCents: orderProduct.priceCents,
-            subtotalCents: expectedTotalCents,
-        },
-    ]);
-
-    const orderId = order.id;
-    expect(response.headers()['location']).toBe(`/api/orders/${orderId}`);
-
-    const cartResponse = await request.get('/api/cart');
-    expect(cartResponse.status()).toBe(200);
-
-    const cartBody: CartResponse = await cartResponse.json();
-    expect(cartBody.cart).toMatchObject({
-        items: [],
-        itemCount: 0,
-        totalQuantity: 0,
-        totalCents: 0,
-        canCheckout: false,
-    });
-
-    const productResponse = await request.get(`/api/products/${productId}`);
-    expect(productResponse.status()).toBe(200);
-
-    const productBody: ProductDetailsResponse = await productResponse.json();
-    expect(productBody.product.stock).toBe(orderProduct.stock - quantity);
-});
 
 test('API returns details for a placed order', async ({ request, orderProduct }) => {
     const productId = orderProduct.id;
@@ -242,77 +254,95 @@ test('API rejects placing an order from an empty cart', async ({ request }) => {
     expect(cartBody.cart).toEqual(cart);
 });
 
-test('API replays an order request without creating a duplicate or reducing stock twice', async ({ request, orderProduct }) => {
-    const productId = orderProduct.id;
-    const quantity = 2;
-    const idempotencyKey = randomUUID();
-    const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
+test('API replays an order request without creating a duplicate or reducing stock twice',
+    { tag: '@sanity' },
+    async ({ request, orderProduct }) => {
+        const productId = orderProduct.id;
+        const quantity = 2;
+        const idempotencyKey = randomUUID();
+        const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
 
-    const cart = await addCartItem(request, productId, quantity);
+        const { cart, initialHistory } = await test.step('Prepare the cart and capture order history', async () => {
+            const cart = await addCartItem(request, productId, quantity);
 
-    const initialHistoryResponse = await request.get('/api/orders');
-    expect(initialHistoryResponse.status()).toBe(200);
+            const initialHistoryResponse = await request.get('/api/orders');
+            expect(initialHistoryResponse.status()).toBe(200);
 
-    const initialHistory: OrderHistoryResponse = await initialHistoryResponse.json();
+            const initialHistory: OrderHistoryResponse = await initialHistoryResponse.json();
 
-    const csrfToken = await getCsrfToken(request);
+            return { cart, initialHistory };
+        });
 
-    const headers = {
-        Origin: origin,
-        'X-CSRF-Token': csrfToken,
-        'Idempotency-Key': idempotencyKey,
-    };
+        const csrfToken = await getCsrfToken(request);
 
-    const data = {
-        cartVersion: cart.version,
-        checkoutToken: cart.checkoutToken,
-    };
+        const headers = {
+            Origin: origin,
+            'X-CSRF-Token': csrfToken,
+            'Idempotency-Key': idempotencyKey,
+        };
 
-    const firstResponse = await request.post('/api/orders', {
-        headers,
-        data
+        const data = {
+            cartVersion: cart.version,
+            checkoutToken: cart.checkoutToken,
+        };
+
+        const firstBody = await test.step('Place the initial order', async () => {
+            const firstResponse = await request.post('/api/orders', {
+                headers,
+                data
+            });
+            expect(firstResponse.status()).toBe(201);
+
+            const firstBody: OrderPlacementResponse = await firstResponse.json();
+            expect(firstBody.replayed).toBe(false);
+
+            return firstBody;
+        });
+
+        await test.step('Replay the same request and verify the same order', async () => {
+            const response = await request.post('/api/orders', {
+                headers,
+                data,
+            });
+
+            expect(response.status()).toBe(200);
+
+            const contentType = response.headers()['content-type'];
+            const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+
+            expect(mediaType).toBe('application/json');
+
+            const body: OrderPlacementResponse = await response.json();
+
+            expect(body.replayed).toBe(true);
+            expect(body.order).toEqual(firstBody.order);
+        });
+
+        await test.step('Verify that only one order was created', async () => {
+            const historyResponse = await request.get('/api/orders');
+            expect(historyResponse.status()).toBe(200);
+
+            const history: OrderHistoryResponse = await historyResponse.json();
+            expect(history.total).toBe(initialHistory.total + 1);
+        });
+
+        await test.step('Verify that stock decreased once', async () => {
+            const productResponse = await request.get(`/api/products/${productId}`);
+            expect(productResponse.status()).toBe(200);
+
+            const productBody: ProductDetailsResponse = await productResponse.json();
+            expect(productBody.product.stock).toBe(orderProduct.stock - quantity);
+        });
+
+        await test.step('Verify that the cart is empty', async () => {
+            const cartResponse = await request.get('/api/cart');
+            expect(cartResponse.status()).toBe(200);
+
+            const cartBody: CartResponse = await cartResponse.json();
+            expect(cartBody.cart.items).toHaveLength(0);
+            expect(cartBody.cart.totalCents).toBe(0);
+        });
     });
-    expect(firstResponse.status()).toBe(201);
-
-    const firstBody: OrderPlacementResponse = await firstResponse.json();
-    expect(firstBody.replayed).toBe(false);
-
-    const response = await request.post('/api/orders', {
-        headers,
-        data,
-    });
-
-    expect(response.status()).toBe(200);
-
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
-
-    expect(mediaType).toBe('application/json');
-
-    const body: OrderPlacementResponse = await response.json();
-
-    expect(body.replayed).toBe(true);
-    expect(body.order).toEqual(firstBody.order);
-
-    const historyResponse = await request.get('/api/orders');
-    expect(historyResponse.status()).toBe(200);
-
-    const history: OrderHistoryResponse = await historyResponse.json();
-    expect(history.total).toBe(initialHistory.total + 1);
-
-    const productResponse = await request.get(`/api/products/${productId}`);
-    expect(productResponse.status()).toBe(200);
-
-    const productBody: ProductDetailsResponse = await productResponse.json();
-    expect(productBody.product.stock).toBe(orderProduct.stock - quantity);
-
-    const cartResponse = await request.get('/api/cart');
-    expect(cartResponse.status()).toBe(200);
-
-    const cartBody: CartResponse = await cartResponse.json();
-    expect(cartBody.cart.items).toHaveLength(0);
-    expect(cartBody.cart.totalCents).toBe(0);
-});
 
 test('API replays the same reviewed cart with a different idempotency key', async ({ request, orderProduct }) => {
     const productId = orderProduct.id;

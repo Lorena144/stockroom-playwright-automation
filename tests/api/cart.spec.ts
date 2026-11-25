@@ -40,73 +40,75 @@ test('API returns an empty cart', async ({ request }) => {
     expect(body.cart.checkoutToken).toMatch(/^[a-f0-9]{64}$/);
 });
 
-test('API adds a product to the cart', async ({ request }) => {
-    const productId = 'arc-keyboard';
-    const quantity = 2;
+test('API adds a product to the cart',
+    { tag: '@smoke' },
+    async ({ request }) => {
+        const productId = 'arc-keyboard';
+        const quantity = 2;
 
-    const productResponse = await request.get(`/api/products/${productId}`);
-    expect(productResponse.status()).toBe(200);
+        const productResponse = await request.get(`/api/products/${productId}`);
+        expect(productResponse.status()).toBe(200);
 
-    const productBody: ProductDetailsResponse = await productResponse.json();
-    const product = productBody.product;
+        const productBody: ProductDetailsResponse = await productResponse.json();
+        const product = productBody.product;
 
-    expect(product.id).toBe(productId);
-    expect(product.stock).toBeGreaterThanOrEqual(quantity);
+        expect(product.id).toBe(productId);
+        expect(product.stock).toBeGreaterThanOrEqual(quantity);
 
-    const expectedTotalCents = product.priceCents * quantity;
-    const csrfToken = await getCsrfToken(request);
-    const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
+        const expectedTotalCents = product.priceCents * quantity;
+        const csrfToken = await getCsrfToken(request);
+        const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
 
-    const response = await request.post('/api/cart/items', {
-        headers: {
-            Origin: origin,
-            'X-CSRF-Token': csrfToken,
-        },
-        data: {
+        const response = await request.post('/api/cart/items', {
+            headers: {
+                Origin: origin,
+                'X-CSRF-Token': csrfToken,
+            },
+            data: {
+                productId,
+                quantity,
+            },
+        });
+
+        expect(response.status()).toBe(200);
+
+        const contentType = response.headers()['content-type'];
+        const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+
+        expect(mediaType).toBe('application/json');
+
+        const body: CartResponse = await response.json();
+
+        expect(body.cart.items).toHaveLength(1);
+        expect(body.cart.items[0]).toMatchObject({
             productId,
+            sku: product.sku,
+            name: product.name,
             quantity,
-        },
+            stock: product.stock,
+            unitPriceCents: product.priceCents,
+            addedPriceCents: product.priceCents,
+            subtotalCents: expectedTotalCents,
+            priceChanged: false,
+            available: true,
+        });
+
+        expect(body.cart).toMatchObject({
+            currency: 'EUR',
+            itemCount: 1,
+            totalQuantity: quantity,
+            totalCents: expectedTotalCents,
+            canCheckout: true,
+        });
+
+        const savedResponse = await request.get('/api/cart');
+        expect(savedResponse.status()).toBe(200);
+
+        const savedBody: CartResponse = await savedResponse.json();
+
+        expect(savedBody.cart.items).toEqual(body.cart.items);
+        expect(savedBody.cart.totalCents).toBe(expectedTotalCents);
     });
-
-    expect(response.status()).toBe(200);
-
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
-
-    expect(mediaType).toBe('application/json');
-
-    const body: CartResponse = await response.json();
-
-    expect(body.cart.items).toHaveLength(1);
-    expect(body.cart.items[0]).toMatchObject({
-        productId,
-        sku: product.sku,
-        name: product.name,
-        quantity,
-        stock: product.stock,
-        unitPriceCents: product.priceCents,
-        addedPriceCents: product.priceCents,
-        subtotalCents: expectedTotalCents,
-        priceChanged: false,
-        available: true,
-    });
-
-    expect(body.cart).toMatchObject({
-        currency: 'EUR',
-        itemCount: 1,
-        totalQuantity: quantity,
-        totalCents: expectedTotalCents,
-        canCheckout: true,
-    });
-
-    const savedResponse = await request.get('/api/cart');
-    expect(savedResponse.status()).toBe(200);
-
-    const savedBody: CartResponse = await savedResponse.json();
-
-    expect(savedBody.cart.items).toEqual(body.cart.items);
-    expect(savedBody.cart.totalCents).toBe(expectedTotalCents);
-});
 
 test('API adds units to an existing cart item without creating a duplicate line', async ({ request }) => {
     const productId = 'arc-keyboard';
@@ -174,67 +176,69 @@ test('API adds units to an existing cart item without creating a duplicate line'
     expect(savedBody.cart.totalCents).toEqual(expectedTotalCents);
 });
 
-test('API updates a cart item quantity and recalculates totals', async ({ request }) => {
-    const productId = 'arc-keyboard';
-    const initialQuantity = 2;
-    const updatedQuantity = 3;
+test('API updates a cart item quantity and recalculates totals',
+    { tag: '@sanity' },
+    async ({ request }) => {
+        const productId = 'arc-keyboard';
+        const initialQuantity = 2;
+        const updatedQuantity = 3;
 
-    const initialCart = await addCartItem(request, productId, initialQuantity);
-    expect(initialCart.items).toHaveLength(1);
+        const initialCart = await addCartItem(request, productId, initialQuantity);
+        expect(initialCart.items).toHaveLength(1);
 
-    const initialItem = initialCart.items[0];
+        const initialItem = initialCart.items[0];
 
-    expect(initialItem.productId).toBe(productId);
-    expect(initialItem.quantity).toBe(initialQuantity);
-    expect(initialItem.stock).toBeGreaterThanOrEqual(updatedQuantity);
+        expect(initialItem.productId).toBe(productId);
+        expect(initialItem.quantity).toBe(initialQuantity);
+        expect(initialItem.stock).toBeGreaterThanOrEqual(updatedQuantity);
 
-    const expectedTotalCents = initialItem.unitPriceCents * updatedQuantity;
-    const csrfToken = await getCsrfToken(request);
-    const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
+        const expectedTotalCents = initialItem.unitPriceCents * updatedQuantity;
+        const csrfToken = await getCsrfToken(request);
+        const origin = new URL(requiredEnv('UI_BASE_URL')).origin;
 
-    const response = await request.patch(`/api/cart/items/${productId}`, {
-        headers: {
-            Origin: origin,
-            'X-CSRF-Token': csrfToken,
-        },
-        data: {
+        const response = await request.patch(`/api/cart/items/${productId}`, {
+            headers: {
+                Origin: origin,
+                'X-CSRF-Token': csrfToken,
+            },
+            data: {
+                quantity: updatedQuantity,
+            },
+        });
+
+        expect(response.status()).toBe(200);
+
+        const contentType = response.headers()['content-type'];
+        const mediaType = contentType?.split(';')[0].trim().toLowerCase();
+
+        expect(mediaType).toBe('application/json');
+
+        const body: CartResponse = await response.json();
+
+        expect(body.cart.items).toHaveLength(1);
+        expect(body.cart.items[0]).toMatchObject({
+            productId,
             quantity: updatedQuantity,
-        },
+            unitPriceCents: initialItem.unitPriceCents,
+            subtotalCents: expectedTotalCents,
+            available: true,
+        });
+
+        expect(body.cart).toMatchObject({
+            itemCount: 1,
+            totalQuantity: updatedQuantity,
+            totalCents: expectedTotalCents,
+            canCheckout: true,
+        });
+
+        const savedResponse = await request.get('/api/cart');
+        expect(savedResponse.status()).toBe(200);
+
+        const savedBody: CartResponse = await savedResponse.json();
+
+        expect(savedBody.cart.items).toEqual(body.cart.items);
+        expect(savedBody.cart.totalCents).toBe(expectedTotalCents);
     });
-
-    expect(response.status()).toBe(200);
-
-    const contentType = response.headers()['content-type'];
-    const mediaType = contentType?.split(';')[0].trim().toLowerCase();
-
-    expect(mediaType).toBe('application/json');
-
-    const body: CartResponse = await response.json();
-
-    expect(body.cart.items).toHaveLength(1);
-    expect(body.cart.items[0]).toMatchObject({
-        productId,
-        quantity: updatedQuantity,
-        unitPriceCents: initialItem.unitPriceCents,
-        subtotalCents: expectedTotalCents,
-        available: true,
-    });
-
-    expect(body.cart).toMatchObject({
-        itemCount: 1,
-        totalQuantity: updatedQuantity,
-        totalCents: expectedTotalCents,
-        canCheckout: true,
-    });
-
-    const savedResponse = await request.get('/api/cart');
-    expect(savedResponse.status()).toBe(200);
-
-    const savedBody: CartResponse = await savedResponse.json();
-
-    expect(savedBody.cart.items).toEqual(body.cart.items);
-    expect(savedBody.cart.totalCents).toBe(expectedTotalCents);
-});
 
 test('API removes one product and preserves the remaining cart item', async ({ request }) => {
     const productToRemove = {

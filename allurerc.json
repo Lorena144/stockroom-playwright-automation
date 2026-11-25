@@ -1,0 +1,5 @@
+{
+    "name": "Stockroom Test Report",
+    "resultsDir": "./allure-results",
+    "output": "./allure-report"
+}

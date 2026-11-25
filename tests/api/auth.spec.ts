@@ -5,32 +5,34 @@ import type { InventoryResponse } from '../../types/inventory';
 import type { ApiErrorResponse } from '../../types/api';
 import { randomUUID } from 'node:crypto';
 
-test('customer can sign in through the API and use the session', async ({ request }) => {
-    const email = requiredEnv('CUSTOMER_EMAIL');
-    const password = requiredEnv('CUSTOMER_PASSWORD');
+test('customer can sign in through the API and use the session',
+    { tag: ['@smoke', '@sanity'] },
+    async ({ request }) => {
+        const email = requiredEnv('CUSTOMER_EMAIL');
+        const password = requiredEnv('CUSTOMER_PASSWORD');
 
-    const loginResponse = await signInViaApi(request, email, password);
-    expect(loginResponse.status()).toBe(200);
+        const loginResponse = await signInViaApi(request, email, password);
+        expect(loginResponse.status()).toBe(200);
 
-    const loginBody = await loginResponse.json();
-    expect(loginBody).toMatchObject({
-        user: {
-            id: expect.any(String),
-            email,
-            name: expect.any(String),
-            role: 'customer',
-        },
-        csrfToken: expect.any(String),
+        const loginBody = await loginResponse.json();
+        expect(loginBody).toMatchObject({
+            user: {
+                id: expect.any(String),
+                email,
+                name: expect.any(String),
+                role: 'customer',
+            },
+            csrfToken: expect.any(String),
+        });
+
+        const sessionResponse = await request.get('/api/auth/session');
+        expect(sessionResponse.status()).toBe(200);
+
+        const sessionBody = await sessionResponse.json();
+        expect(sessionBody).toEqual({
+            user: loginBody.user
+        });
     });
-
-    const sessionResponse = await request.get('/api/auth/session');
-    expect(sessionResponse.status()).toBe(200);
-
-    const sessionBody = await sessionResponse.json();
-    expect(sessionBody).toEqual({
-        user: loginBody.user
-    });
-});
 
 test('staff can sign in through the API and use the session', async ({ request }) => {
     const email = requiredEnv('STAFF_EMAIL');
@@ -85,37 +87,39 @@ test('customer cannot retrieve staff inventory through the API', async ({ reques
     );
 });
 
-test('staff can retrieve inventory with supplier and cost information', async ({ request }) => {
-    const email = requiredEnv('STAFF_EMAIL');
-    const password = requiredEnv('STAFF_PASSWORD');
+test('staff can retrieve inventory with supplier and cost information',
+    { tag: '@smoke' },
+    async ({ request }) => {
+        const email = requiredEnv('STAFF_EMAIL');
+        const password = requiredEnv('STAFF_PASSWORD');
 
-    const loginResponse = await signInViaApi(request, email, password);
-    expect(loginResponse.status()).toEqual(200);
+        const loginResponse = await signInViaApi(request, email, password);
+        expect(loginResponse.status()).toEqual(200);
 
-    const loginBody = await loginResponse.json();
-    expect(loginBody.user.role).toBe('staff');
+        const loginBody = await loginResponse.json();
+        expect(loginBody.user.role).toBe('staff');
 
-    const inventoryResponse = await request.get('/api/inventory');
-    expect(inventoryResponse.status()).toBe(200);
-    expect(inventoryResponse.headers()['content-type']).toContain('application/json');
+        const inventoryResponse = await request.get('/api/inventory');
+        expect(inventoryResponse.status()).toBe(200);
+        expect(inventoryResponse.headers()['content-type']).toContain('application/json');
 
-    const inventoryBody: InventoryResponse = await inventoryResponse.json();
-    expect(Array.isArray(inventoryBody.items)).toBe(true);
-    expect(inventoryBody.items.length).toBeGreaterThan(0);
+        const inventoryBody: InventoryResponse = await inventoryResponse.json();
+        expect(Array.isArray(inventoryBody.items)).toBe(true);
+        expect(inventoryBody.items.length).toBeGreaterThan(0);
 
-    for (const item of inventoryBody.items) {
-        expect(item).toMatchObject({
-            id: expect.any(String),
-            sku: expect.any(String),
-            name: expect.any(String),
-            costCents: expect.any(Number),
-            supplier: expect.any(String),
-        });
+        for (const item of inventoryBody.items) {
+            expect(item).toMatchObject({
+                id: expect.any(String),
+                sku: expect.any(String),
+                name: expect.any(String),
+                costCents: expect.any(Number),
+                supplier: expect.any(String),
+            });
 
-        expect(Number.isInteger(item.costCents)).toBe(true);
-        expect(item.costCents).toBeGreaterThanOrEqual(0);
-    }
-});
+            expect(Number.isInteger(item.costCents)).toBe(true);
+            expect(item.costCents).toBeGreaterThanOrEqual(0);
+        }
+    });
 
 test('API rejects incorrect credentials without creating a session', async ({ request }) => {
     const unknownEmail = `unknown-${randomUUID()}@stockroom.test`;

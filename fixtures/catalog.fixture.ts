@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { APIRequestContext } from '@playwright/test';
 import { signInViaApi } from '../utils/api-auth';
 import { requiredEnv } from '../utils/env';
@@ -19,11 +20,35 @@ export const test = base.extend<{}, CatalogWorkerFixtures>({
             });
 
             try {
-                const loginResponse = await signInViaApi(
+                let loginResponse = await signInViaApi(
                     authRequest,
                     requiredEnv('CUSTOMER_EMAIL'),
                     requiredEnv('CUSTOMER_PASSWORD'),
                 );
+
+                if (loginResponse.status() === 429) {
+                    const retryAfterSeconds = Number(
+                        loginResponse.headers()['retry-after'],
+                    );
+
+                    if (
+                        !Number.isInteger(retryAfterSeconds) ||
+                        retryAfterSeconds < 1 ||
+                        retryAfterSeconds > 60
+                    ) {
+                        throw new Error(
+                            'Login setup requires Retry-After between 1 and 60 seconds.',
+                        );
+                    }
+
+                    await delay((retryAfterSeconds + 1) * 1_000);
+
+                    loginResponse = await signInViaApi(
+                        authRequest,
+                        requiredEnv('CUSTOMER_EMAIL'),
+                        requiredEnv('CUSTOMER_PASSWORD'),
+                    );
+                }
 
                 expect(loginResponse.status()).toBe(200);
 
@@ -34,7 +59,7 @@ export const test = base.extend<{}, CatalogWorkerFixtures>({
                 await authRequest.dispose();
             }
         },
-        { scope: 'worker' },
+        { scope: 'worker', timeout: 90_000 },
     ],
 });
 

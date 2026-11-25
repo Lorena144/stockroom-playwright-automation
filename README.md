@@ -141,3 +141,7 @@ GitHub Actions initializes a fresh demo database, builds a pinned Stockroom vers
 and runs UI, API and hybrid tests inside the official Playwright Docker image.
 The image version matches the project's Playwright version.
 Credentials are provided through GitHub Secrets.
+
+After successful tests on `main`, the workflow generates and publishes the
+[Allure report](https://lorena144.github.io/stockroom-playwright-automation/)
+to GitHub Pages. Pull requests do not publish reports.
